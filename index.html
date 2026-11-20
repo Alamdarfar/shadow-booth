@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shadow Booth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: library of episodes -> practice booth (video + sentence slate + controls + transcript list). */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --slate:#18222f; --slate-fg:#f3f6f9;
+  --fg:#1b2430; --muted:#5d6b7b; --line:#d5dce4;
+  --accent:#e0661b; --accent-soft:#fbe6d8;
+  --good:#1f8a5b; --mid:#c28a12; --bad:#c23b3b;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f141b; --surface:#18202b; --slate:#0a0e13; --slate-fg:#eef2f6;
+  --fg:#e3e9ef; --muted:#93a1b1; --line:#2a3542;
+  --accent:#f08a45; --accent-soft:#3a2617;
+  --good:#45c08a; --mid:#e2b246; --bad:#ec6a6a; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 16px 48px;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(1.6rem,3.5vw,2.2rem);margin:0;letter-spacing:-.02em}
+h1 button{all:unset;cursor:pointer}
+.onair{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.onair i{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.onair.live i{background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.sub{color:var(--muted);margin:2px 0 0}
+button{font:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* library */
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.tools input{flex:1 1 260px;min-width:0;font:inherit;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:7px 14px;border-radius:999px;cursor:pointer;font-size:.9rem}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.count{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;text-align:left;padding:0;color:var(--fg)}
+.card:hover{border-color:var(--accent)}
+.card img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:var(--line)}
+.card .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card h3{font-family:var(--display);font-size:1rem;font-weight:700;margin:0;line-height:1.25}
+.meta{display:flex;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:.72rem;color:var(--muted)}
+.tag{border:1px solid var(--line);border-radius:5px;padding:0 6px}
+.bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--good)}
+.empty{padding:40px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:14px}
+
+/* practice */
+.booth{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.booth{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.ep-title{font-family:var(--display);font-size:1.25rem;margin:0}
+.video{position:relative;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden}
+.video.mini{aspect-ratio:auto;height:0}
+.video>div,.video iframe{position:absolute;inset:0;width:100%;height:100%}
+.slate{background:var(--slate);color:var(--slate-fg);border-radius:16px;padding:22px clamp(16px,3vw,32px) 20px;display:flex;flex-direction:column;gap:14px}
+.slate-top{display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:.76rem;color:#9fb0c2;flex-wrap:wrap}
+.sentence{font-family:var(--display);font-weight:500;font-size:clamp(1.3rem,3vw,1.85rem);line-height:1.35;margin:0;min-height:2.7em;transition:filter .25s}
+.sentence.blind{filter:blur(9px);user-select:none}
+.sentence .hit{color:#7fe0b1}
+.sentence .miss{color:#ff9a8a;text-decoration:underline wavy;text-underline-offset:5px}
+.heard{font-family:var(--mono);font-size:.86rem;color:#b9c6d4;min-height:1.4em;margin:0}
+.heard b{color:#fff}
+.meter{height:6px;background:#2a3644;border-radius:3px;overflow:hidden}
+.meter span{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
+.controls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+@media (max-width:560px){.controls{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.btn{font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:12px;padding:12px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+.btn small{font-family:var(--mono);font-weight:400;font-size:.68rem;color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary small{color:#ffe9dc}
+.btn.rec{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.btn.rec small{color:var(--bg);opacity:.7}
+.btn.rec.on{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.settings{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:.9rem;color:var(--muted)}
+.settings label{display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+select{font:inherit;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+input[type=checkbox]{accent-color:var(--accent);width:17px;height:17px}
+.toast{min-height:1.3em;font-size:.88rem;color:var(--accent);margin:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.panel h2{font-family:var(--display);font-size:1.05rem;margin:0}
+.stat{font-family:var(--mono);font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.list{max-height:70vh;overflow:auto;padding:6px}
+.line{display:grid;grid-template-columns:44px minmax(0,1fr) 42px;gap:8px;align-items:baseline;width:100%;text-align:left;border:0;background:transparent;color:var(--fg);padding:7px 8px;border-radius:8px;cursor:pointer;font-size:.92rem}
+.line:hover{background:var(--bg)}
+.line.cur{background:var(--accent-soft)}
+.line.turn{border-top:1px dashed var(--line);border-radius:0 0 8px 8px}
+.line time{font-family:var(--mono);font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.line .sc{font-family:var(--mono);font-size:.72rem;text-align:right;font-weight:600}
+.sc.g{color:var(--good)} .sc.m{color:var(--mid)} .sc.b{color:var(--bad)}
+.back{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer}
+kbd{font-family:var(--mono);font-size:.72rem;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--surface)}
+.note{font-size:.84rem;color:var(--muted);margin:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <span class="onair" id="onair"><i></i><span id="onairText">Booth ready</span></span>
+      <h1><button type="button" id="home">Shadow Booth</button></h1>
+      <p class="sub">Shadowing practice with every Leo English Podcast episode, sentence by sentence.</p>
+    </div>
+  </header>
+
+  <!-- LIBRARY -->
+  <section id="library" class="col">
+    <div class="tools">
+      <input id="search" type="search" placeholder="Search episodes, e.g. daily routine, phrasal verbs, work…" aria-label="Search episodes">
+      <div id="levels" class="tools"></div>
+      <span class="count" id="libCount"></span>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <!-- PRACTICE -->
+  <section id="practice" class="booth" hidden>
+    <div class="col">
+      <div class="tools"><button class="back" id="backBtn" type="button">← All episodes</button><span class="count" id="epMeta"></span></div>
+      <h2 class="ep-title" id="epTitle"></h2>
+      <div class="video" id="videoBox"><div id="player"></div></div>
+      <div class="slate" aria-live="polite">
+        <div class="slate-top"><span id="pos"></span><span id="clock"></span></div>
+        <p class="sentence" id="sentence"></p>
+        <div class="meter"><span id="meter"></span></div>
+        <p class="heard" id="heard"></p>
+      </div>
+      <div class="controls">
+        <button class="btn" id="prevBtn" type="button">◀ Back<small>←</small></button>
+        <button class="btn primary" id="listenBtn" type="button">Listen<small>L</small></button>
+        <button class="btn rec" id="speakBtn" type="button">Speak<small>S</small></button>
+        <button class="btn" id="bothBtn" type="button">Listen + speak<small>Space</small></button>
+        <button class="btn" id="nextBtn" type="button">Next ▶<small>→</small></button>
+      </div>
+      <div class="settings">
+        <label>Speed <select id="rate"><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option></select></label>
+        <label>Voice <select id="voice"><option value="video">Leo &amp; Tina (video)</option><option value="tts">Computer voice</option></select></label>
+        <label><input type="checkbox" id="blind"> Hide text until I speak</label>
+        <label><input type="checkbox" id="auto" checked> Next after 85%+</label>
+        <label><input type="checkbox" id="hideVideo"> Hide video</label>
+      </div>
+      <p class="toast" id="toast" role="status"></p>
+      <p class="note">Shortcuts: <kbd>Space</kbd> listen then speak · <kbd>L</kbd> listen · <kbd>S</kbd> speak · <kbd>←</kbd> <kbd>→</kbd> move. Speech scoring works best in Google Chrome.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Transcript</h2><span class="stat" id="summary"></span></div>
+      <div class="list" id="list"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const store = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch{ return d; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch{} }
+};
+const fmt = s => { s=Math.max(0,Math.floor(s)); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); };
+
+let INDEX = [], ep = null, idx = 0, lastResult = null, revealed = false, levelFilter = "All";
+
+/* ================= library ================= */
+async function loadIndex(){
+  try{
+    const r = await fetch("lessons/index.json", {cache:"no-store"});
+    INDEX = await r.json();
+  }catch{ INDEX = []; }
+  const levels = ["All", ...new Set(INDEX.map(v=>v.level).filter(Boolean))].sort((a,b)=>a==="All"?-1:b==="All"?1:a.localeCompare(b));
+  const box = $("levels"); box.textContent="";
+  for (const l of levels){
+    const b=document.createElement("button"); b.className="chip"; b.type="button"; b.textContent=l;
+    b.setAttribute("aria-pressed", String(l===levelFilter));
+    b.onclick=()=>{ levelFilter=l; [...box.children].forEach(c=>c.setAttribute("aria-pressed", String(c===b))); renderGrid(); };
+    box.appendChild(b);
+  }
+  renderGrid();
+}
+function progressOf(id){
+  const sc = store.get("sb.sc."+id, {}); const vals = Object.values(sc);
+  return {tried: vals.length, good: vals.filter(v=>v>=85).length};
+}
+function renderGrid(){
+  const q = $("search").value.trim().toLowerCase();
+  const items = INDEX.filter(v => (levelFilter==="All" || v.level===levelFilter) && (!q || v.title.toLowerCase().includes(q)));
+  $("libCount").textContent = `${items.length} of ${INDEX.length} episodes`;
+  const grid = $("grid"); grid.textContent = "";
+  if (!INDEX.length){
+    grid.innerHTML = '<div class="empty">No lessons yet. Run <code>fetch_lessons.py</code> to download the episodes.</div>'; return;
+  }
+  for (const v of items){
+    const p = progressOf(v.id);
+    const c = document.createElement("button"); c.type="button"; c.className="card";
+    c.innerHTML = `<img loading="lazy" alt="" src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg"><div class="body"><h3></h3><div class="meta"></div>${p.tried?`<div class="bar"><span style="width:${Math.round(100*p.good/(v.count||1))}%"></span></div>`:""}</div>`;
+    c.querySelector("h3").textContent = v.short || v.title;
+    const meta = c.querySelector(".meta");
+    if (v.level){ const t=document.createElement("span"); t.className="tag"; t.textContent=v.level; meta.appendChild(t); }
+    meta.append(`${v.duration?fmt(v.duration):""} · ${v.count||"?"} sentences${p.tried?` · ${p.good} mastered`:""}`);
+    c.title = v.title;
+    c.onclick = () => { location.hash = "v=" + v.id; };
+    grid.appendChild(c);
+  }
+}
+$("search").oninput = renderGrid;
+
+/* ================= routing ================= */
+async function route(){
+  const m = location.hash.match(/v=([\w-]{6,})/);
+  if (!m){ stopAll(); $("practice").hidden = true; $("library").hidden = false; renderGrid(); document.title="Shadow Booth"; return; }
+  try{
+    const r = await fetch(`lessons/${m[1]}.json`); ep = await r.json();
+  }catch{ toast("That lesson isn't downloaded yet."); location.hash=""; return; }
+  $("library").hidden = true; $("practice").hidden = false;
+  $("epTitle").textContent = ep.short || ep.title;
+  $("epMeta").textContent = [ep.level, ep.duration?fmt(ep.duration):"", `${ep.sentences.length} sentences`].filter(Boolean).join(" · ");
+  document.title = (ep.short||ep.title) + " · Shadow Booth";
+  idx = Math.min(store.get("sb.idx."+ep.id, 0), ep.sentences.length-1);
+  renderList(); go(idx, true);
+  loadPlayer(ep.id);
+  scrollTo(0,0);
+}
+window.addEventListener("hashchange", route);
+$("home").onclick = $("backBtn").onclick = () => { location.hash = ""; };
+
+/* ================= YouTube player ================= */
+let player = null, playerReady = false, pendingVideo = null, segEnd = null, segTimer = null, afterSeg = null;
+window.onYouTubeIframeAPIReady = () => {
+  player = new YT.Player("player", {
+    videoId: pendingVideo || undefined,
+    playerVars:{playsinline:1, rel:0, modestbranding:1, cc_load_policy:0},
+    events:{ onReady:()=>{ playerReady=true; player.setPlaybackRate(parseFloat($("rate").value)); },
+             onStateChange:e=>{ if(e.data===YT.PlayerState.PLAYING) setOnAir(true,"Playing"); else if(segEnd==null && !recording) setOnAir(false,"Booth ready"); } }
+  });
+};
+(function(){ const s=document.createElement("script"); s.src="https://www.youtube.com/iframe_api"; document.head.appendChild(s); })();
+function loadPlayer(id){
+  if (player && playerReady){ if (player.getVideoData?.().video_id !== id) player.cueVideoById(id); }
+  else pendingVideo = id;
+}
+function playSegment(then){
+  const s = ep.sentences[idx];
+  if ($("voice").value === "tts" || !player || !playerReady){ speakTTS(s.t, then); return; }
+  clearInterval(segTimer); afterSeg = then || null;
+  segEnd = s.e;
+  player.setPlaybackRate(parseFloat($("rate").value));
+  player.seekTo(Math.max(0, s.s - 0.15), true);
+  player.playVideo();
+  setOnAir(true, "Playing");
+  segTimer = setInterval(() => {
+    const t = player.getCurrentTime();
+    if (t >= segEnd - 0.05){
+      clearInterval(segTimer); player.pauseVideo(); segEnd = null; setOnAir(false,"Booth ready");
+      const f = afterSeg; afterSeg = null; if (f) setTimeout(f, 150);
+    }
+  }, 40);
+}
+function speakTTS(text, then){
+  if (!("speechSynthesis" in window)){ toast("This browser can't read text aloud."); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text); u.lang="en-US"; u.rate=parseFloat($("rate").value);
+  const v = speechSynthesis.getVoices().find(v=>/^en[-_](US|GB)/i.test(v.lang)); if (v) u.voice=v;
+  u.onstart=()=>setOnAir(true,"Playing");
+  u.onend=()=>{ setOnAir(false,"Booth ready"); if (then) setTimeout(then,150); };
+  speechSynthesis.speak(u);
+}
+function stopAll(){
+  clearInterval(segTimer); segEnd=null; afterSeg=null;
+  try{ player && playerReady && player.pauseVideo(); }catch{}
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  if (recording) stopRec();
+}
+
+/* ================= scoring ================= */
+const norm = w => w.toLowerCase().replace(/[’‘]/g,"'").replace(/[^a-z0-9']/g,"");
+const tokens = s => s.split(/\s+/).filter(Boolean);
+const NUM = {zero:"0",one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9",ten:"10"};
+const key = w => { const n=norm(w); return NUM[n]||n; };
+function compare(target, said){
+  const T=tokens(target), tn=T.map(key), sn=tokens(said).map(key).filter(Boolean);
+  const n=tn.length, m=sn.length, dp=Array.from({length:n+1},()=>new Array(m+1).fill(0));
+  for (let i=n-1;i>=0;i--) for (let j=m-1;j>=0;j--) dp[i][j]=(tn[i]&&tn[i]===sn[j])?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
+  const hit=new Array(n).fill(false); let i=0,j=0;
+  while(i<n&&j<m){ if(tn[i]&&tn[i]===sn[j]){hit[i]=true;i++;j++;} else if(dp[i+1][j]>=dp[i][j+1]) i++; else j++; }
+  const real=tn.filter(Boolean).length||1, got=hit.filter((h,k)=>h&&tn[k]).length;
+  return {words:T, hit, score:Math.round(100*got/real)};
+}
+
+/* ================= speech recognition ================= */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec=null, recording=false, heard="";
+function setRecording(on){
+  recording=on; $("speakBtn").classList.toggle("on",on);
+  $("speakBtn").firstChild.textContent = on?"Stop":"Speak";
+  setOnAir(on, on?"Recording":"Booth ready");
+}
+function showHeard(partial){
+  const h=$("heard"); h.textContent="";
+  const b=document.createElement("b"); b.textContent=(heard+" "+(partial||"")).trim()||"…";
+  h.append("You said: ", b);
+}
+function startRec(){
+  if (!SR){ toast("Speech input needs Google Chrome or Edge. Open this page there."); return; }
+  if (recording) return;
+  stopAll();
+  heard=""; lastResult=null; renderSentence();
+  rec = new SR(); rec.lang="en-US"; rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=1;
+  let failed=false;
+  rec.onresult = ev => { let fin="",part=""; for (const r of ev.results) r.isFinal?(fin+=r[0].transcript+" "):(part+=r[0].transcript); heard=fin; showHeard(part); };
+  rec.onerror = ev => {
+    failed = true;
+    if (ev.error==="not-allowed"||ev.error==="service-not-allowed") toast("Microphone access is blocked. Allow the microphone for this page in the browser's address bar.");
+    else if (ev.error==="network") toast("Speech recognition needs Google Chrome with an internet connection.");
+    else if (ev.error==="no-speech") toast("I didn't hear anything. Press Speak and try again.");
+  };
+  rec.onend = () => { rec=null; if (failed && !heard.trim()){ setRecording(false); $("heard").textContent=""; return; } finish(); };
+  try{ rec.start(); setRecording(true); showHeard(""); }catch{ setRecording(false); }
+}
+function stopRec(){ try{ rec && rec.stop(); }catch{} }
+function finish(){
+  setRecording(false);
+  const said=heard.trim();
+  if (!said){ $("heard").textContent="I didn't catch anything. Press Speak and try again a little louder."; return; }
+  revealed=true;
+  lastResult = compare(ep.sentences[idx].t, said);
+  showHeard(""); $("heard").append(` — ${lastResult.score}%`);
+  const sc = store.get("sb.sc."+ep.id, {});
+  if (sc[idx]==null || lastResult.score>sc[idx]) sc[idx]=lastResult.score;
+  store.set("sb.sc."+ep.id, sc);
+  renderSentence(); updateLine(idx); renderSummary();
+  const missed = lastResult.words.filter((w,k)=>!lastResult.hit[k]).map(norm).filter(Boolean);
+  if (lastResult.score>=85){
+    toast(missed.length?`Nice! Watch: ${missed.join(", ")}`:"Perfect. Every word landed.");
+    if ($("auto").checked && idx<ep.sentences.length-1) setTimeout(()=>{ if(!recording) go(idx+1); }, 1400);
+  } else toast(missed.length?`Try again. Missed: ${missed.slice(0,8).join(", ")}`:"Try again.");
+}
+
+/* ================= practice rendering ================= */
+function scoreClass(v){ return v>=85?"g":v>=60?"m":"b"; }
+function renderList(){
+  const sc = store.get("sb.sc."+ep.id, {});
+  const list=$("list"); list.textContent="";
+  ep.sentences.forEach((s,k)=>{
+    const b=document.createElement("button"); b.type="button"; b.className="line"+(s.n?" turn":""); b.id="ln"+k;
+    const t=document.createElement("time"); t.textContent=fmt(s.s);
+    const tx=document.createElement("span"); tx.textContent=s.t;
+    const sp=document.createElement("span"); sp.className="sc";
+    if (sc[k]!=null){ sp.textContent=sc[k]+"%"; sp.classList.add(scoreClass(sc[k])); }
+    b.append(t,tx,sp); b.onclick=()=>go(k);
+    list.appendChild(b);
+  });
+  renderSummary();
+}
+function updateLine(k){
+  const sc = store.get("sb.sc."+ep.id, {}); const sp=$("ln"+k)?.querySelector(".sc"); if(!sp) return;
+  sp.className="sc"; if (sc[k]!=null){ sp.textContent=sc[k]+"%"; sp.classList.add(scoreClass(sc[k])); }
+}
+function renderSummary(){
+  const vals=Object.values(store.get("sb.sc."+ep.id,{}));
+  $("summary").textContent = vals.length ? `${vals.length}/${ep.sentences.length} tried · avg ${Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)}% · ${vals.filter(v=>v>=85).length} mastered` : `${ep.sentences.length} sentences`;
+}
+function renderSentence(){
+  const s=ep.sentences[idx]; const el=$("sentence"); el.textContent="";
+  tokens(s.t).forEach((w,k)=>{ const sp=document.createElement("span"); if(lastResult) sp.className=lastResult.hit[k]?"hit":"miss"; sp.textContent=w; el.append(sp," "); });
+  el.classList.toggle("blind", $("blind").checked && !revealed);
+  $("pos").textContent=`Sentence ${idx+1} / ${ep.sentences.length}${s.n?" · new speaker":""}`;
+  $("clock").textContent=`${fmt(s.s)} – ${fmt(s.e)}`;
+  $("meter").style.width = lastResult?lastResult.score+"%":"0%";
+  $("prevBtn").disabled = idx===0; $("nextBtn").disabled = idx>=ep.sentences.length-1;
+}
+function go(k, quiet){
+  if (!quiet) stopAll();
+  idx=Math.max(0,Math.min(ep.sentences.length-1,k)); store.set("sb.idx."+ep.id, idx);
+  revealed=false; lastResult=null;
+  $("heard").innerHTML="Press <b>Listen</b>, then <b>Speak</b> and repeat what you heard.";
+  renderSentence(); toast("");
+  document.querySelectorAll(".line.cur").forEach(e=>e.classList.remove("cur"));
+  const ln=$("ln"+idx); if(ln){ ln.classList.add("cur"); ln.scrollIntoView({block:"nearest"}); }
+}
+function toast(m){ $("toast").textContent=m||""; }
+function setOnAir(live,text){ $("onair").classList.toggle("live",live); $("onairText").textContent=text; }
+
+/* ================= wiring ================= */
+$("listenBtn").onclick=()=>{ stopAll(); playSegment(); };
+$("speakBtn").onclick=()=>{ recording?stopRec():startRec(); };
+$("bothBtn").onclick=()=>{ stopAll(); playSegment(startRec); };
+$("prevBtn").onclick=()=>go(idx-1);
+$("nextBtn").onclick=()=>go(idx+1);
+for (const id of ["blind","auto","hideVideo"]){
+  $(id).checked = store.get("sb."+id, id==="auto");
+  $(id).onchange=()=>{ store.set("sb."+id,$(id).checked); applyPrefs(); };
+}
+$("rate").value=store.get("sb.rate","1"); $("voice").value=store.get("sb.voice","video");
+$("rate").onchange=()=>{ store.set("sb.rate",$("rate").value); try{ playerReady&&player.setPlaybackRate(parseFloat($("rate").value)); }catch{} };
+$("voice").onchange=()=>store.set("sb.voice",$("voice").value);
+function applyPrefs(){ $("videoBox").classList.toggle("mini",$("hideVideo").checked); if (ep) renderSentence(); }
+applyPrefs();
+
+document.addEventListener("keydown", e=>{
+  if ($("practice").hidden || e.target.closest("input,select,textarea") || e.ctrlKey||e.metaKey||e.altKey) return;
+  const k=e.key.toLowerCase();
+  if (k===" "){ e.preventDefault(); $("bothBtn").click(); }
+  else if (k==="l"){ e.preventDefault(); $("listenBtn").click(); }
+  else if (k==="s"){ e.preventDefault(); $("speakBtn").click(); }
+  else if (k==="arrowright"){ e.preventDefault(); go(idx+1); }
+  else if (k==="arrowleft"){ e.preventDefault(); go(idx-1); }
+});
+
+loadIndex().then(route);
+})();
+</script>
+</body>
+</html>
