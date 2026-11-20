@@ -236,18 +236,22 @@ window.addEventListener("hashchange", route);
 $("home").onclick = $("backBtn").onclick = () => { location.hash = ""; };
 
 /* ================= YouTube player ================= */
-let player = null, playerReady = false, pendingVideo = null, segEnd = null, segTimer = null, afterSeg = null;
-window.onYouTubeIframeAPIReady = () => {
+let player = null, playerReady = false, apiReady = false, pendingVideo = null, segEnd = null, segTimer = null, afterSeg = null;
+window.onYouTubeIframeAPIReady = () => { apiReady = true; if (pendingVideo) createPlayer(pendingVideo); };
+function createPlayer(id){
+  pendingVideo = null;
   player = new YT.Player("player", {
-    videoId: pendingVideo || undefined,
+    videoId: id,
     playerVars:{playsinline:1, rel:0, modestbranding:1, cc_load_policy:0},
     events:{ onReady:()=>{ playerReady=true; player.setPlaybackRate(parseFloat($("rate").value)); },
              onStateChange:e=>{ if(e.data===YT.PlayerState.PLAYING) setOnAir(true,"Playing"); else if(segEnd==null && !recording) setOnAir(false,"Booth ready"); } }
   });
-};
+}
 (function(){ const s=document.createElement("script"); s.src="https://www.youtube.com/iframe_api"; document.head.appendChild(s); })();
 function loadPlayer(id){
   if (player && playerReady){ if (player.getVideoData?.().video_id !== id) player.cueVideoById(id); }
+  else if (player){ player.addEventListener?.("onReady", () => { if (player.getVideoData?.().video_id !== id) player.cueVideoById(id); }); }
+  else if (apiReady) createPlayer(id);
   else pendingVideo = id;
 }
 function playSegment(then){
